@@ -106,6 +106,38 @@ enum class CommandType {
 
 };
 
+// ################################################################################################
+// Why separate Command and Task? 
+//keep database logic separate from networking logic
+// Command is protocol-level, Task is execution-level
+
+// 1. The Command (The "What")
+// The Command is just the Pizza Order.
+// It says: "Pepperoni, Large, Thin Crust."
+// It doesn't care who ordered it or how it gets there. It’s just the raw data of the request.
+// In your code: SET, Key, Value.
+// 2. The Task (The "How & Where")
+// The Task is the Delivery Box + The Address Label.
+// It contains the Command (The Pizza) PLUS the client_fd (The House Address).
+// The Chef (Worker Thread) takes the Task, looks at the Command to cook the pizza, and then uses the client_fd to know which house to drive to.
+
+// Why separate them? 
+
+// Problem A: The "Internal Order" What if your system needs to run a command automatically? (e.g., An LRU Eviction task that deletes old keys to save memory).
+// If client_fd is inside Command, your internal system has to "fake" a network connection just to delete a key.
+// The Solution: With separate structs, the system creates a Task with client_fd = -1 (no address). The worker thread sees the -1, runs the Command, and knows it doesn't need to send a network reply.
+// Problem B: Reusability Imagine you decide to add a WebSocket or a Shared Memory interface later.
+// The Command (the protocol logic) stays exactly the same.
+// You only change the Task (the wrapper) to hold a different kind of ID.
+
+// so the problem is:
+// The Problem:  mixed Database Logic (deleting a key) with Networking Logic (talking to a client).
+//  In a professional system, the "Delete" function should only care about deleting. 
+// It shouldn't have to "ask" if a client is watching.
+
+// ################################################################################################
+
+
 // Represents a parsed client command
 struct Command {
     CommandType type;
@@ -160,6 +192,8 @@ inline TimePoint now() {
 inline int64_t elapsed_micros(TimePoint start) {
     return std::chrono::duration_cast<std::chrono::microseconds>(
         now() - start).count();
+    //calculates the time difference between the current time (now()) and a previously recorded start time (start).
+    // It converts this time difference into microseconds and returns the result as an integer value.
 }
 
 
