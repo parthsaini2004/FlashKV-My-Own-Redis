@@ -1,0 +1,115 @@
+
+##### Flow of Data
+Scenario: A client sends the command SET user:100 "Parth".
+
+
+1)
+Stage 1: Client -> OS Kernel (The Wire)
+The Action: The client calls the OS syscall write(). 
+The Data (On the Wire): The client converts the command into the RESP (Redis Serialization Protocol) format.
+*3\r\n$3\r\nSET\r\n$8\r\nuser:100\r\n$5\r\nParth\r\n
+
+Process:
+The byte stream travels over TCP/IP.
+It arrives at your server's Network Interface Card (NIC).
+The OS Kernel copies these bytes into the Kernel Socket Receive Buffer associated with the specific File Descriptor (FD), let's say FD: 5.
+
+2)
+Stage 2: OS Kernel -> Main Thread (The Read)
+Main Thread calls epoll_wait() (or select/poll). It blocks here, sleeping.
+OS Kernel sees data on FD: 5. It wakes up the Main Thread.
+epoll_wait returns, telling the Main Thread: "There is data ready to read on FD 5."
+Main Thread calls read(FD 5, buffer, 4096).
+The Buffer: You have a raw byte array allocated in your Main Thread (Stack or Heap). char buffer[4096];
+buffer looks like this (Hex/ASCII view):
+
+[0x2A] *
+[0x33] 3
+[0x0D] \r
+[0x0A] \n
+... (rest of the RESP string) ...
+
+3)
+Stage 3: Main Thread -> RESP Parser (The Interpretation)
+Main Thread calls RESPParser::parse(buffer, current_index, command_struct)
+The parser iterates through the buffer bytes. It does not copy the full string if it can avoid it (zero-copy), but it builds a Command object.like:
+struct Command {
+    type: CommandType::SET
+    key: "user:100"   (std::string)
+    value: "Parth"    (std::string)
+}
+The parser returns true (success) to the Main Thread.
+
+4)
+Stage 4: Main Thread -> Task Queue (The Handoff)
+Main Thread creates a Task object. This bundles the connection with the data.
+
+Main Thread calls ThreadPool::submit(Task).
+Inside submit:
+Calls mutex.lock().
+Calls queue.push(Task).
+Calls mutex.unlock().
+Calls condition_variable.notify_one().
+
+This object is now sitting inside std::queue<Task> in heap memory:
+struct Task {
+    client_fd: 5          (The integer handle for the connection)
+    cmd: {SET, "user:100", "Parth"}
+}
+
+Outcome: The Main Thread returns immediately. It loops back to epoll_wait to handle other clients. It is done with this request.
+
+5)
+Stage 5: Task Queue -> Worker Thread (The Pickup)
+The Actor: A Worker Thread (one of the 8 in the pool).
+Worker Thread was previously blocked inside condition_variable.wait().
+
+The notify_one() signal from Stage 4 wakes it up.
+Worker Thread wakes up inside the wait() function.
+Worker Thread (internal to wait) re-acquires the mutex.lock().
+Worker Thread checks !queue.empty(). It is true.
+Worker Thread calls queue.front() to copy the Task.
+Worker Thread calls queue.pop() to remove it from the queue.
+Worker Thread calls mutex.unlock().
+
+The Task object has moved from the shared Queue to the local stack of this specific Worker Thread.
+
+6)
+Stage 6: Worker Thread -> Storage Engine (The Execution)
+Worker Thread examines task.cmd.type. It is SET.
+Worker Thread calls StorageEngine::set("user:100", "Parth").
+Storage Engine calls hash("user:100") -> Returns hash value (e.g., 34921).
+Storage Engine calculates shard index: 34921 % 32 = 9.
+Storage Engine calls shards[9].mutex.lock() (Write Lock).
+Storage Engine accesses std::unordered_map and inserts the pair.
+Storage Engine calls shards[9].mutex.unlock().
+The Data Snapshot (In Memory Store): Inside Shard 9's Hash Map:
+Key: "user:100"
+Value: "Parth"
+Return Value: StorageEngine returns a Response object to the Worker Thread.
+struct Response {
+    success: true
+    data: "OK"
+}
+
+7)
+Stage 7: Worker Thread -> Client (The Response)
+Worker Thread calls Response::toRESP().
+This converts the struct back to a wire-format string: "+OK\r\n".
+Worker Thread calls the OS syscall send(task.client_fd, response_string, length, 0).
+This writes data to the Kernel Socket Send Buffer for FD: 5.
+
+Outcomes:
+The OS sends the TCP packets back to the client.
+The Worker Thread finishes the loop iteration.
+It goes back to Stage 5 (locks mutex, checks queue, goes to sleep if empty).
+
+
+Step,   Location / Component,     Data Structure (Type),        Visual Representation (The Data)
+1,      Network (Wire),           TCP Stream (Raw Bytes),       *3\r\n$3\r\nSET\r\n$8\r\nuser:100\r\n$5\r\nParth\r\n
+2,      Main Thread (Stack),      char buffer[4096],            [0x2A][0x33][0x0D][0x0A]...  (Exact copy of wire bytes)
+3,      Parser Logic,             struct Command,               "{ type: SET, key: ""user:100"", value: ""Parth"" }"
+4,      Task Queue (Heap),        struct Task,                  "{ client_fd: 5, cmd: {SET, ""user:100"", ""Parth""} }"
+5,      Storage Engine (Shard),   "std::pair<string, string>",  "key: ""user:100"" -> value: ""Parth"""
+6,      Worker Thread (Stack),    struct Response,              "{ success: true, data: ""OK"" }"
+7,      Network (Wire),           TCP Stream (Raw Bytes),       +OK\r\n
