@@ -113,3 +113,39 @@ Step,   Location / Component,     Data Structure (Type),        Visual Represent
 5,      Storage Engine (Shard),   "std::pair<string, string>",  "key: ""user:100"" -> value: ""Parth"""
 6,      Worker Thread (Stack),    struct Response,              "{ success: true, data: ""OK"" }"
 7,      Network (Wire),           TCP Stream (Raw Bytes),       +OK\r\n
+
+
+/**
+ * ARCHITECT NOTE: Production Deployment Checklist
+ * 
+
+ * 
+ * 1. CONFIGURATION MANAGEMENT:
+ *    - Use config file (JSON/YAML) for: port, thread count, AOF path
+ *    - Environment variables for secrets
+ *    - Command-line args for overrides
+ * 
+ * 2. MONITORING & OBSERVABILITY:
+ *    - Prometheus metrics: QPS, latency p50/p99, queue depth
+ *    - Structured logging (JSON) for log aggregation
+ *    - Health check endpoint (/health)
+ * 
+ * 3. DEPLOYMENT:
+ *    - Docker container with Alpine Linux
+ *    - Kubernetes StatefulSet (for persistence)
+ *    - Resource limits: CPU pinning, memory limits
+ * 
+ * 4. RELIABILITY:
+ *    - Graceful shutdown: drain queue, flush AOF
+ *    - Circuit breakers for downstream dependencies
+ *    - Rate limiting per client (token bucket)
+ * 
+ * 5. SCALING:
+ *    - Horizontal: Add more instances with consistent hashing
+ *    - Vertical: Increase shards (64, 128) for NUMA systems
+ *    - Read replicas: Separate read/write paths
+ * 
+ * INTERVIEW QUESTION YOU SHOULD ASK:
+ * "What's the expected workload? Read-heavy or write-heavy?
+ *  This affects our read/write lock ratio and AOF strategy."
+ */

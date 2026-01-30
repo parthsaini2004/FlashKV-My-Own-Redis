@@ -281,27 +281,35 @@ namespace flashkv {
             return Response(true, "0");
         }
 
-        // Stats getStats() const {
-        //     Stats stats{};
-        //     size_t max_size = 0;
-        //     size_t total = 0;
+        // Stats for monitoring
+        struct Stats {
+            size_t total_keys;
+            size_t max_shard_size;
+            double avg_shard_size;
+            double load_imbalance;  // max/avg ratio
+        };
+
+        Stats getStats() const {
+            Stats stats{};
+            size_t max_size = 0;
+            size_t total = 0;
             
-        //     for (const auto& shard : shards_) {
-        //         std::shared_lock<std::shared_mutex> lock(shard.mutex);
-        //         size_t size = shard.data.size();
-        //         total += size;
-        //         max_size = std::max(max_size, size);
-        //     }
+            for (const auto& shard : shards_) {
+                std::shared_lock<std::shared_mutex> lock(shard.mutex);
+                size_t size = shard.data.size();
+                total += size;
+                max_size = std::max(max_size, size);
+            }
             
-        //     stats.total_keys = total;
-        //     stats.max_shard_size = max_size;
-        //     stats.avg_shard_size = static_cast<double>(total) / NUM_SHARDS;
-        //     stats.load_imbalance = stats.avg_shard_size > 0 
-        //         ? max_size / stats.avg_shard_size 
-        //         : 0.0;
+            stats.total_keys = total;
+            stats.max_shard_size = max_size;
+            stats.avg_shard_size = static_cast<double>(total) / NUM_SHARDS;
+            stats.load_imbalance = stats.avg_shard_size > 0 
+                ? max_size / stats.avg_shard_size 
+                : 0.0;
             
-        //     return stats;
-        // }
+            return stats;
+        }
 
 
         private:
