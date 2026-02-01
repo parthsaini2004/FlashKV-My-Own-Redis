@@ -321,8 +321,12 @@ namespace flashkv {
         std::ofstream aof_stream_;
         std::mutex aof_mutex_;  // Separate lock for file I/O
 
+        bool is_recovering_ = false;
+
 
         void logAOF(const std::string& cmd, const std::string& key, const std::string& value) {
+            // If we are recovering, DO NOT write to the file again.
+                if (is_recovering_) return; //check for recovering mode
                 std::lock_guard<std::mutex> lock(aof_mutex_);
                 
                 // Simple text format: CMD key value\n
@@ -342,6 +346,8 @@ namespace flashkv {
             //recoverFromAOF is the database's "Memory Reconstruction" phase.
             std::ifstream recovery_stream(aof_path_);
             if (!recovery_stream.is_open()) return;
+
+            is_recovering_ = true; // <--- TURN ON RECOVERY MODE
             
             std::string line;
             size_t count = 0;
