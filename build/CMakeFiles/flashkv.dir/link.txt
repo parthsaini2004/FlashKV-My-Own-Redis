@@ -1,0 +1,1 @@
+/usr/bin/c++  -O3 -march=native -flto -Wall -Wextra -Wpedantic -stdlib=libc++ -O3 -DNDEBUG -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/flashkv.dir/src/main.cpp.o -o flashkv

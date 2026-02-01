@@ -1,0 +1,8 @@
+/Users/parthsaini/Documents/GitHub/FlashKV-My-Own-Redis/build/CMakeFiles/flashkv.dir
+/Users/parthsaini/Documents/GitHub/FlashKV-My-Own-Redis/build/CMakeFiles/test.dir
+/Users/parthsaini/Documents/GitHub/FlashKV-My-Own-Redis/build/CMakeFiles/edit_cache.dir
+/Users/parthsaini/Documents/GitHub/FlashKV-My-Own-Redis/build/CMakeFiles/rebuild_cache.dir
+/Users/parthsaini/Documents/GitHub/FlashKV-My-Own-Redis/build/CMakeFiles/list_install_components.dir
+/Users/parthsaini/Documents/GitHub/FlashKV-My-Own-Redis/build/CMakeFiles/install.dir
+/Users/parthsaini/Documents/GitHub/FlashKV-My-Own-Redis/build/CMakeFiles/install/local.dir
+/Users/parthsaini/Documents/GitHub/FlashKV-My-Own-Redis/build/CMakeFiles/install/strip.dir
