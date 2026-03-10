@@ -114,25 +114,40 @@ Meanwhile, other workers process other clients in parallel.
 
 Prerequisites: macOS, CMake 3.15+, C++17 compiler
 
-    mkdir build && cd build
+Build the project:
+
+    cd FlashKV-My-Own-Redis
+    rm -rf build
+    mkdir build
+    cd build
     cmake .. -DCMAKE_BUILD_TYPE=Release
     make
+
+Start the server in one terminal:
+
     ./flashkv
 
-Server starts on port 7379.
+The server starts on port 7379 and prints configuration and statistics.
 
-Test
+Running Tests
 
+Open a new terminal and run the automated test suite:
+
+    cd FlashKV-My-Own-Redis
     cd tests
     python3 test_client.py
 
-Runs correctness tests and benchmarks.
+This runs correctness tests and performance benchmarks showing throughput and latency.
 
-Manual Test
+Manual Testing
 
-    telnet localhost 7379
-    SET mykey myvalue
-    GET mykey
+For manual testing with clean output, run the test script:
+
+    cd FlashKV-My-Own-Redis
+    cd tests
+    python3 manual_test.py
+
+
 
 ## Operations
 
